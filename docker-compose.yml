@@ -1,0 +1,68 @@
+version: '3.10'
+
+services:
+  web:
+    build: .
+    command: bash -c "python main.py"
+    entrypoint: [ "./entrypoint.sh" ]
+    env_file:
+      - .env
+    environment:
+      - "ENV_FILE_PATH=.env"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    links:
+      - "db:db"
+      - "rabbitmq:rabbitmq"
+      - "worker:worker"
+    depends_on:
+      - db
+      - worker
+
+
+  worker:
+    build: .
+    command: bash -c "celery -A celery_worker worker -l info"
+    environment:
+      - IPDATA_API_KEY=test
+    depends_on:
+      - db
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:latest
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbit
+      - RABBITMQ_DEFAULT_PASS=rabbit
+      - RABBITMQ_PORT=5672
+    ports:
+      - "5672:5672"
+    volumes:
+      - /var/lib/rabbitmq/
+      - /var/log/rabbitmq/
+
+  db:
+    image: postgres:latest
+    restart: always
+    tty: true
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    environment:
+      - PMA_ARBITRARY=1
+
+volumes:
+  postgres_data:
